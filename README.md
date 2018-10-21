@@ -12,7 +12,3 @@ A collection of my notes/projects/implementations/ in the wonderful world of NLP
 
 ## Implementations
 >Implementing research papers from arXiv.
-
-
-
-
