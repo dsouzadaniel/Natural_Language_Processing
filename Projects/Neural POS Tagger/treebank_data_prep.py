@@ -75,4 +75,3 @@ if verify_train_test_splits(all_lines_total, train_lines, test_lines):
     write_data_to_file(test_lines, './DATA/test_lines.txt')
 
     print("Train and Test sets Created!")
-
