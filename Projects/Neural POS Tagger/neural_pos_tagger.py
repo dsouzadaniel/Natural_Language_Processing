@@ -39,4 +39,8 @@ def read_data(filename):
             content.append((tokens, tags))
     return content
 
+train_data = read_data('./DATA/train_lines.txt')
+print("Length of Train Data is : ", len(train_data))
 
+test_data = read_data('./DATA/test_lines.txt')
+print("Length of Test Data is : ", len(test_data))
