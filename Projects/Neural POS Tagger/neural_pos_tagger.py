@@ -17,7 +17,7 @@ LSTM_HIDDEN = 100
 BATCH_SIZE = 10
 LEARNING_RATE = 0.015
 LEARNING_DECAY_RATE = 0.05
-EPOCHS = 100
+EPOCHS = 5
 KEEP_PROB = 0.5
 WEIGHT_DECAY = 1e-8
 
@@ -82,13 +82,13 @@ def main():
     id_2_tag = [PAD]
     tag_2_id = {PAD:0}
 
-    for tokens, tags in train:
+    for tokens, tags in train + test:
         for token in tokens:
             if not token in token_2_id:
                 token_2_id[token] = len(token_2_id)
                 id_2_token.append(token)
         for tag in tags:
-            if not tag in tag_2_idL
+            if not tag in tag_2_id:
                 tag_2_id[tag] = len(tag_2_id)
                 id_2_tag.append(tag)
 
@@ -109,12 +109,50 @@ def main():
 
     model = TaggerModel(num_of_words, num_of_tags, pretrained_list, id_2_token)
 
+    optimizer = torch.optim.SGD(model.parameters(),
+                                lr=LEARNING_RATE,
+                                weight_decay=WEIGHT_DECAY)
+
+    rescale_lr = lambda epoch: 1/ (1 + LEARNING_DECAY_RATE * epoch)
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                  lr_lambda = rescale_lr)
+
+    expressions = (model, optimizer)
+
+    for epoch in range(EPOCHS):
+        random.shuffle(train)
+
+        # Update Learning Rate
+        scheduler.step()
+
+        model.train()
+        model.zero_grad()
+
+        loss, train_acc = do_pass(train, token_2_id, tag_2_id, expressions, True)
+
+        model.eval()
+
+        _, dev_acc = do_pass(test, token_2_id, tag_2_id, expressions, False)
+
+        print("{} loss {} train-acc {} dev-acc {}".format(epoch, loss, train_acc, dev_acc))
+
+    # Save Model
+    torch.save(model.state_dict(), "tagger.pt.model")
+
+    # Load Model
+    model.load_state_dict(torch.load('tagger.pt.model'))
+
+    # Evaluation Pass
+    _, test_acc = do_pass(dev, token_2_id, tag_2_id, expressions, False)
+
+    print(" Test Accuracy : {:.3f}".format(test_acc))
 
 
 class TaggerModel(torch.nn.Module):
 
     def __init__(self, nwords, ntags, pretrained_list, id_2_token):
-        super.init()
+        super().__init__()
 
         # Create Word Embeddings
         pretrained_tensor = torch.FloatTensor(pretrained_list)
@@ -158,9 +196,68 @@ class TaggerModel(torch.nn.Module):
 
         loss = loss_function(output_scores, flat_labels)
 
+        predicted_tags = torch.argmax(output_scores, 1)
         predicted_tags  = predicted_tags.view(curr_batch_size, max_length)
 
         return loss, predicted_tags
+
+
+def do_pass(data, token_2_id, tag_2_id, expressions, train):
+    model, optimizer = expressions
+
+    # Loop Over batches
+    loss = 0
+    match = 0
+    total = 0
+
+    for start in range(0, len(data), BATCH_SIZE):
+        batch = data[start: start+ BATCH_SIZE]
+        batch.sort(key = lambda x: -len(x[0]))
+
+        if start%4000 == 0 and start > 0:
+            print(loss, match/total)
+            sys.stdout.flush()
+
+        # Prepare Inputs
+        curr_batch_size = (len(batch))
+        max_length = len(batch[0][0])
+        lengths = [len(v[0]) for v in batch]
+
+        input_array = torch.zeros((curr_batch_size, max_length)).long()
+        output_array = torch.zeros((curr_batch_size, max_length)).long()
+
+        for n, (tokens, tags) in enumerate(batch):
+            token_ids = [token_2_id.get(simplify_token(t), 0) for t in tokens]
+            tags_ids = [tag_2_id[t] for t in tags]
+
+            input_array[n, :len(tokens)] = torch.LongTensor(token_ids)
+            output_array[n, :len(tags)] = torch.LongTensor(tags_ids)
+
+        batch_loss, output = model(input_array, output_array, lengths, curr_batch_size)
+
+        # Run Computations
+
+        if train:
+            batch_loss.backward()
+            optimizer.step()
+            model.zero_grad()
+            loss +=batch_loss.item()
+
+        predicted = output.cpu().data.numpy()
+
+        # Update the Metrics
+        for (_, g), a in zip(batch, predicted):
+            total += len(g)
+            for gt, at in zip(g, a):
+                gt = tag_2_id[gt]
+                if gt == at:
+                    match += 1
+
+    return loss, match / total
+
+
+if __name__ == '__main__':
+    main()
 
 
 
