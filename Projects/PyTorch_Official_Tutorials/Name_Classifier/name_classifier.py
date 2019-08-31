@@ -49,6 +49,18 @@ def name_2_tensor(some_name):
 data = {k: v for (k, v) in [readData(curr_file_path) for curr_file_path in glob.glob(DATA_GLOB_PATH)]}
 categories = list(data.keys())
 
+data_tuples = [(name,ctgry) for ctgry in categories for name in data[ctgry]]
+random.shuffle(data_tuples)
+
+training_tuples = data_tuples[:15000]
+validation_tuples = data_tuples[15000:17500]
+test_tuples = data_tuples[17500:]
+
+print("Dataset Sizes are : Training({0}), Validation({1}), Test({2}) ".format(len(training_tuples), len(validation_tuples), len(test_tuples)))
+
+
+
+
 
 # # Print Some of the Data
 # print(data.keys())
@@ -104,6 +116,7 @@ def get_random_data_pair():
     return random_name, random_name_tensor, random_category, random_category_tensor
 
 
-for i in range(10):
-    curr_name, curr_name_tensor, curr_category, curr_category_tensor = get_random_data_pair()
-    print("Name : {0} \t Category : {1}".format(curr_name, curr_category))
+
+# for i in range(10):
+#     curr_name, curr_name_tensor, curr_category, curr_category_tensor = get_random_data_pair()
+#     print("Name : {0} \t Category : {1}".format(curr_name, curr_category))
