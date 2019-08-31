@@ -59,9 +59,6 @@ test_tuples = data_tuples[17500:]
 print("Dataset Sizes are : Training({0}), Validation({1}), Test({2}) ".format(len(training_tuples), len(validation_tuples), len(test_tuples)))
 
 
-
-
-
 # # Print Some of the Data
 # print(data.keys())
 # print(data['Arabic'][:5])
