@@ -4,9 +4,9 @@ import glob
 
 import unicodedata
 import string
+import random
 import torch
 import torch.nn as nn
-
 
 # Paths
 DATA_GLOB_PATH = os.path.join('data', 'names', '*.txt')
@@ -49,6 +49,7 @@ def name_2_tensor(some_name):
 data = {k: v for (k, v) in [readData(curr_file_path) for curr_file_path in glob.glob(DATA_GLOB_PATH)]}
 categories = list(data.keys())
 
+
 # # Print Some of the Data
 # print(data.keys())
 # print(data['Arabic'][:5])
@@ -69,8 +70,8 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.hidden_size = hidden_size
 
-        self.i2o = nn.Linear(input_size+hidden_size, output_size)
-        self.i2h = nn.Linear(input_size+hidden_size, hidden_size)
+        self.i2o = nn.Linear(input_size + hidden_size, output_size)
+        self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
 
         self.LogSoftmax = nn.LogSoftmax(dim=1)
 
@@ -83,6 +84,8 @@ class RNN(nn.Module):
         output_state = self.i2o(combined_state)
         output_state = self.LogSoftmax(output_state)
         return output_state, next_hidden_state
+
+
 #
 # sample_input = name_2_tensor('Daniel')
 # our_rnn = RNN(input_size=vocab_size, hidden_size=128, output_size=len(categories))
@@ -92,3 +95,15 @@ class RNN(nn.Module):
 #
 # print("Current Output is {0}".format(curr_out))
 # print("Current Hidden is {0}".format(curr_hidden))
+
+def get_random_data_pair():
+    random_category = random.choice(categories)
+    random_name = random.choice(data[random_category])
+    random_name_tensor = name_2_tensor(random_name)
+    random_category_tensor = torch.tensor([categories.index(random_category)], dtype=torch.long)
+    return random_name, random_name_tensor, random_category, random_category_tensor
+
+
+for i in range(10):
+    curr_name, curr_name_tensor, curr_category, curr_category_tensor = get_random_data_pair()
+    print("Name : {0} \t Category : {1}".format(curr_name, curr_category))
