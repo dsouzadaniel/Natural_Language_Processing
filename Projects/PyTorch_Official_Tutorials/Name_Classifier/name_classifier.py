@@ -62,19 +62,6 @@ test_tuples = data_tuples[17500:]
 print("Dataset Sizes are : Training({0}), Validation({1}), Test({2}) ".format(len(training_tuples),
                                                                               len(validation_tuples), len(test_tuples)))
 
-
-# # Print Some of the Data
-# print(data.keys())
-# print(data['Arabic'][:5])
-# print(data['English'][:5])
-# print(data['Chinese'][:5])
-
-# example = 'Daniel'
-# for ix, char in enumerate(example):
-#     print(char, "->", char_2_ix(char))
-#
-# print(name_2_tensor('Daniel'))
-
 ###### Defining the Network ########
 
 
@@ -98,17 +85,6 @@ class RNN(nn.Module):
         output_state = self.LogSoftmax(output_state)
         return output_state, next_hidden_state
 
-
-#
-# sample_input = name_2_tensor('Daniel')
-# our_rnn = RNN(input_size=vocab_size, hidden_size=128, output_size=len(categories))
-# init_hidden = our_rnn.init_hidden()
-#
-# curr_out, curr_hidden = our_rnn(sample_input[0], init_hidden)
-#
-# print("Current Output is {0}".format(curr_out))
-# print("Current Hidden is {0}".format(curr_hidden))
-
 def get_random_data_pair():
     random_category = random.choice(categories)
     random_name = random.choice(data[random_category])
@@ -116,10 +92,6 @@ def get_random_data_pair():
     random_category_tensor = torch.tensor([categories.index(random_category)], dtype=torch.long)
     return random_name, random_name_tensor, random_category, random_category_tensor
 
-
-# for i in range(10):
-#     curr_name, curr_name_tensor, curr_category, curr_category_tensor = get_random_data_pair()
-#     print("Name : {0} \t Category : {1}".format(curr_name, curr_category))
 
 
 char_rnn = RNN(input_size=vocab_size, hidden_size=128, output_size=len(categories))
