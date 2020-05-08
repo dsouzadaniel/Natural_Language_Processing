@@ -1,0 +1,10 @@
+PADDING_TOK_IX = 0
+UNK_TOK_IX = 1
+
+EPOCHS = 25
+
+DATASET_FOLDER = 'yelp_dataset'
+TRAIN_FILE = 'yelp_train.csv'
+VALID_FILE = 'yelp_valid.csv'
+TEST_FILE = 'yelp_test.csv'
+
