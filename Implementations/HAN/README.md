@@ -19,12 +19,12 @@ I have also implemented a Streamlit App to interact with the model! ^_^
 
 * To install requirements
 
-`pip install -r requirements.txt`
+> `pip install -r requirements.txt`
 
 * To train a new model
 
-` python train.py`
+> ` python train.py`
 
 * To run the Demo Streamlit App
  
-` streamlit run app.py`
+> ` streamlit run app.py`
