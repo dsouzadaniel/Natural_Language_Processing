@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from sklearn.metrics import classification_report
+import matplotlib.pyplot as plt
 
 # Datasets
 training_dataset = loader.YelpLoader(path_to_csv=os.path.join(constant.DATASET_FOLDER, constant.TRAIN_FILE))
@@ -24,7 +25,7 @@ validation_dataset = loader.YelpLoader(path_to_csv=os.path.join(constant.DATASET
 test_dataset = loader.YelpLoader(path_to_csv=os.path.join(constant.DATASET_FOLDER, constant.TEST_FILE))
 
 # DataLoaders
-training_dataloader = DataLoader(training_dataset, batch_size=10, shuffle=True)
+training_dataloader = DataLoader(training_dataset, batch_size=2, shuffle=True)
 validation_dataloader = DataLoader(validation_dataset, batch_size=1, shuffle=False)
 test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -47,9 +48,9 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(HAN.parameters(), lr=0.005, momentum=0.9)
 
 # Run Test Dataset before Training
-print("Predicting on Test Set")
-true_test_labels, pred_test_labels = helper.model_test(HAN, test_dataloader)
-print(classification_report(y_true=true_test_labels, y_pred=pred_test_labels))
+# print("Predicting on Test Set")
+# true_test_labels, pred_test_labels = helper.model_test(HAN, test_dataloader)
+# print(classification_report(y_true=true_test_labels, y_pred=pred_test_labels))
 
 start_time = time.time()
 
@@ -84,3 +85,16 @@ print("\n\nTraining Complete!\t Total Time: {0}\n\n".format(time_taken))
 print("Predicting on Test Set")
 true_test_labels, pred_test_labels = helper.model_test(best_HAN, test_dataloader)
 print(classification_report(y_true=true_test_labels, y_pred=pred_test_labels))
+
+print("Loss Graphs")
+plt.figure()
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.plot(epoch_training_loss_collect, label='training')
+plt.plot(epoch_validation_loss_collect, label='validation')
+plt.legend(loc="upper right")
+plt.savefig("loss.png")
+
+print("Confusion Matrix")
+loss_fig = helper.plot_confusion(true_test_labels, pred_test_labels, training_dataset.ctgry)
+loss_fig.savefig("confusion.png")

@@ -52,23 +52,26 @@ def prep_each_document(document: str):
 #     predicted_class = softmax(pred_unnormalized).argmax().item()
 #     return predicted_class
 #
-# def plot_confusion(true_labels, pred_labels, category_labels=None):
-#     confusion = torch.zeros(len(category_labels), len(category_labels))
-#     for t, p in zip(true_labels, pred_labels):
-#         confusion[t][p] += 1
-#     fig = plt.figure()
-#     ax = fig.add_subplot(111)
-#     cax = ax.matshow(confusion.numpy())
-#     fig.colorbar(cax)
-#
-#     ax.set_title('Confusion Matrix')
-#
-#     ax.set_xticklabels([''] + category_labels, rotation=90)
-#     ax.set_yticklabels([''] + category_labels)
-#
-#     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-#     ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+def plot_confusion(true_labels, pred_labels, category_labels=None):
+    confusion = torch.zeros(len(category_labels), len(category_labels))
+    for t, p in zip(true_labels, pred_labels):
+        confusion[t][p] += 1
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(confusion.numpy())
+    fig.colorbar(cax)
 
+    ax.set_title('Confusion Matrix')
+
+    ax.set_xlabel('Predicted Label')
+    ax.set_ylabel('True Label')
+
+    ax.set_xticklabels([''] + category_labels, rotation=90)
+    ax.set_yticklabels([''] + category_labels)
+
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+    return fig
 
 def model_train(model, model_criterion, model_optimizer, dataloader):
     model.train()

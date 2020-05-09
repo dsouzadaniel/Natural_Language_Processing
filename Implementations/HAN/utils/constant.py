@@ -1,7 +1,7 @@
 PADDING_TOK_IX = 0
 UNK_TOK_IX = 1
 
-EPOCHS = 25
+EPOCHS = 3
 
 DATASET_FOLDER = 'yelp_dataset'
 TRAIN_FILE = 'yelp_train.csv'
