@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 class YelpLoader(Dataset):
     def __init__(self, path_to_csv):
         self.data_tuples = []
-        df = pd.read_csv(path_to_csv, nrows=100)
+        df = pd.read_csv(path_to_csv)
         df['text'] = df['text'].apply(str.lower)
         df['stars'] = df['stars'].apply(lambda x: x - 1)
         self.data_tuples = [(r['text'], r['stars']) for _, r in df.iterrows()]
