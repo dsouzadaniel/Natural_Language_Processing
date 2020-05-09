@@ -48,9 +48,9 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(HAN.parameters(), lr=0.005, momentum=0.9)
 
 # Run Test Dataset before Training
-# print("Predicting on Test Set")
-# true_test_labels, pred_test_labels = helper.model_test(HAN, test_dataloader)
-# print(classification_report(y_true=true_test_labels, y_pred=pred_test_labels))
+print("Predicting on Test Set")
+true_test_labels, pred_test_labels = helper.model_test(HAN, test_dataloader)
+print(classification_report(y_true=true_test_labels, y_pred=pred_test_labels))
 
 start_time = time.time()
 
@@ -86,7 +86,7 @@ print("Predicting on Test Set")
 true_test_labels, pred_test_labels = helper.model_test(best_HAN, test_dataloader)
 print(classification_report(y_true=true_test_labels, y_pred=pred_test_labels))
 
-print("Loss Graphs")
+print("Writing the Loss Graph")
 plt.figure()
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
@@ -95,6 +95,6 @@ plt.plot(epoch_validation_loss_collect, label='validation')
 plt.legend(loc="upper right")
 plt.savefig("loss.png")
 
-print("Confusion Matrix")
+print("Writing the Confusion Matrix")
 loss_fig = helper.plot_confusion(true_test_labels, pred_test_labels, training_dataset.ctgry)
 loss_fig.savefig("confusion.png")

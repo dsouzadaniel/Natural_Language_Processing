@@ -7,4 +7,3 @@ DATASET_FOLDER = 'yelp_dataset'
 TRAIN_FILE = 'yelp_train.csv'
 VALID_FILE = 'yelp_valid.csv'
 TEST_FILE = 'yelp_test.csv'
-

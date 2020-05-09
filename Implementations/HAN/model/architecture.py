@@ -7,12 +7,12 @@ from allennlp.modules.elmo import Elmo, batch_to_ids
 # Model Definition
 class HanModel(nn.Module):
     def __init__(self,
-                 input_dim: int,
-                 hidden_dim: int,
-                 bidirectional: bool,
-                 layers: int,
-                 padding_idx: int,
-                 class_size: int,
+                 input_dim: int = 256,
+                 hidden_dim: int = 32,
+                 bidirectional: bool = True,
+                 layers: int = 2,
+                 padding_idx: int = 0,
+                 class_size: int = 5,
                  randomize_init_hidden: bool = True
                  ):
 
