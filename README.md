@@ -15,3 +15,6 @@ A collection of my notes/projects/implementations/ in the wonderful world of NLP
 
 * Hierarchical Attention Networks(HAN) for Document Classification ( ***https://www.aclweb.org/anthology/N16-1174.pdf***)
     >Implementing HAN Networks with Elmo
+
+* Bi-Directional Attention Flow For Machine Comprehension ( ***https://arxiv.org/pdf/1611.01603.pdf***)
+    >Implementing Bi-DAFs for MC
