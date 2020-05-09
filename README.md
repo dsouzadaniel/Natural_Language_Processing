@@ -7,8 +7,11 @@ A collection of my notes/projects/implementations/ in the wonderful world of NLP
 ## Projects
 >Coding up interesting projects and tutorials I find.
 
-* Neural POS Tagger ( ***Currently In Progress***)
-    >Inspired by the fantastic post written up by Jonathan K. Kummerfeld. (Link: https://bit.ly/2PHl6St )
+* PyTorch Official Tutorials ( ***Currently In Progress***)
+    >Adding Minibatching and Dataloaders to tutorials
 
 ## Implementations
 >Implementing research papers from arXiv.
+
+* Hierarchical Attention Networks(HAN) for Document Classification ( ***https://www.aclweb.org/anthology/N16-1174.pdf***)
+    >Implementing HAN Networks with Elmo
