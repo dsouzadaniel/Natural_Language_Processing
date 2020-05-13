@@ -4,11 +4,10 @@ import torch
 import torch.nn as nn
 import spacy
 
+from typing import List
+from allennlp.modules.elmo import Elmo, batch_to_ids
 
-# from typing import List
-# from allennlp.modules.elmo import Elmo, batch_to_ids
-#
-# nlp = spacy.load('en_core_web_sm')
+nlp = spacy.load('en_core_web_sm')
 
 
 # Model Definition
@@ -40,6 +39,7 @@ class HighwayNetwork(nn.Module):
             highway_tensor = curr_gate_layer * curr_plain_layer + (1 - curr_gate_layer) * highway_tensor
         return highway_tensor
 
+
 #
 # hn = HighwayNetwork(input_dim=100, num_layers=2)
 #
@@ -49,55 +49,83 @@ class HighwayNetwork(nn.Module):
 # print("Output Tensor Shape is {0}".format(output_tensor.shape))
 #
 #
-#
-#
-#
-# class BiDAF(nn.Module):
-#     def __init__(self,
-#                  input_dim: int):
-#         super(BiDAF, self).__init__()
-#         # Model Properties
-#         self.input_dim = input_dim
-#
-#         # Useful Constants
-#         self.CHAR_SET_CNN = list(string.whitespace+string.punctuation+string.ascii_lowercase + string.ascii_uppercase + string.digits)
-#         self.CNN_FILTERS = 100
-#         self.CNN_WIDTH = 5
-#         self.OPTIONS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
-#         self.WEIGHTS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
-#
-#         # Model Layers
-#         self.cnn = nn.Conv1d(in_channels=self.input_dim,
-#                              out_channels=self.CNN_FILTERS,
-#                              kernel_size=self.CNN_WIDTH,
-#                              padding=self.CNN_WIDTH // 2,
-#                              stride=1
-#                              )
-#
-#         self.elmo_embed = Elmo(self.OPTIONS_FILE, self.WEIGHTS_FILE, 1)
-#
-#     def forward(self, input_text_list: List) -> torch.Tensor:
-#         for input_text in input_text_list:
-#             input_text_doc = nlp(input_text)
-#             sentences = [[token.text for token in input_text_doc]]
-#             # Embed the Words with Elmo
-#             character_ids = batch_to_ids(sentences)
-#             sentences_embedded = self.elmo_embed(character_ids)['elmo_representations'][0]
-#             print(sentences_embedded.shape)
-#             print(self.CHAR_SET_CNN)
-#             print(len(self.CHAR_SET_CNN))
-#         pass
-#         # output_tensor = self.cnn(input_tensor)
-#         # max_output, _ = output_tensor.max(dim=2)
-#         # max_output = max_output.squeeze()
-#         # return max_output
-#
-#
-# bidaf = BiDAF(input_dim=1024)
-# # input = torch.randn(1, 1024, 20)
-# # print(input.shape)
-# # output = bidaf(input)
-# # print(output.shape)
-#
-# input_to_send = ['Hello this is the best']
-# bidaf(input_to_send)
+
+
+class BiDAF(nn.Module):
+    def __init__(self,):
+        super(BiDAF, self).__init__()
+        # Model Properties
+
+        # Useful Constants
+        self.UNK_TOK_IX = 0
+        self.CHAR_EMBED_DIM = 100
+        self.NUM_OF_CHAR_FILTERS = 100
+        self.CHAR_FILTER_WIDTH = 5
+        self.OPTIONS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
+        self.WEIGHTS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
+
+        # Model Helper
+        self.CHAR_SET_CNN = ["UNK"] + list(
+            " " + string.punctuation + string.ascii_lowercase + string.ascii_uppercase + string.digits)
+        self.CHAR_2_IX = {CHAR: IX for IX, CHAR in enumerate(self.CHAR_SET_CNN)}
+        self.token_2_char_ixs = lambda token: torch.LongTensor(
+            [self.CHAR_2_IX.get(char, self.UNK_TOK_IX) for char in list(token)])
+
+        # Model Layers
+        self.char_embedding = nn.Embedding(num_embeddings=len(self.CHAR_SET_CNN),
+                                           embedding_dim=self.CHAR_EMBED_DIM)
+        self.cnn = nn.Conv1d(in_channels=self.CHAR_EMBED_DIM,
+                             out_channels=self.NUM_OF_CHAR_FILTERS,
+                             kernel_size=self.CHAR_FILTER_WIDTH,
+                             padding=self.CHAR_FILTER_WIDTH // 2,
+                             stride=1
+                             )
+
+        self.elmo = Elmo(self.OPTIONS_FILE, self.WEIGHTS_FILE, 1)
+
+    def cnn_embed_doc(self, doc_tokens: List[List[str]]) -> List[torch.Tensor]:
+        cnn_doc_feats = []
+        for sent_tokens in doc_tokens:
+            cnn_sent_feats = []
+            for token in sent_tokens:
+                token_char_ixs = self.token_2_char_ixs(token)
+                token_char_embedded = self.char_embedding(token_char_ixs)
+                token_char_embedded = torch.transpose(token_char_embedded, 0, 1).unsqueeze(dim=0)
+                cnn_features = self.cnn(token_char_embedded)
+                cnn_features_maxpool, _ = cnn_features.max(dim=2)
+                cnn_sent_feats.append(cnn_features_maxpool)
+            cnn_doc_feats.append(torch.cat(cnn_sent_feats, dim=0))
+        return cnn_doc_feats
+
+    def elmo_embed_doc(self, doc_tokens: List[List[str]]) -> List[torch.Tensor]:
+        elmo_doc_feats = []
+        doc_elmo_ids = batch_to_ids(doc_tokens)
+        doc_elmo_embed = self.elmo(doc_elmo_ids)
+        for sent_elmo_embed, sent_elmo_mask in zip(doc_elmo_embed['elmo_representations'][0],doc_elmo_embed['mask']):
+            elmo_doc_feats.append(sent_elmo_embed[:sum(sent_elmo_mask)])
+        return elmo_doc_feats
+
+    def forward(self, document: str) -> List[torch.Tensor]:
+        doc = nlp(document)
+        doc_tokens = [[token.text for token in sent] for sent in doc.sents]
+
+        print(doc_tokens)
+        # Embed the Doc with CNN
+        doc_embedded_cnn = self.cnn_embed_doc(doc_tokens)
+
+        # Embed the Doc with Elmo
+        doc_embedded_elmo = self.elmo_embed_doc(doc_tokens)
+
+        return [doc_embedded_cnn, doc_embedded_elmo]
+
+
+
+bidaf = BiDAF()
+
+input_to_send = "There once was a dog. His name was Charlie. He was a very good boy."
+cd_em, ed_em = bidaf(input_to_send)
+
+for cs_em,es_em in zip(cd_em,ed_em):
+    print(cs_em.shape, es_em.shape)
+    print(torch.cat([cs_em,es_em],dim=1).shape)
+    print("\n")
