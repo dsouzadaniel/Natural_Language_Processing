@@ -57,7 +57,7 @@ class BiDAF(nn.Module):
         self.OPTIONS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
         self.WEIGHTS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
 
-        self.LSTM_LAYERS = 2
+        self.LSTM_LAYERS = 1
         self.randomize_init_hidden = True
 
         # Model Helper
@@ -67,7 +67,10 @@ class BiDAF(nn.Module):
         self.token_2_char_ixs = lambda token: torch.LongTensor(
             [self.CHAR_2_IX.get(char, self.UNK_TOK_IX) for char in list(token)])
 
+
         # Model Layers
+        self.softmax_dim1 = nn.Softmax(dim=1)
+
         self.char_embedding = nn.Embedding(num_embeddings=len(self.CHAR_SET_CNN),
                                            embedding_dim=self.CHAR_EMBED_DIM)
         self.cnn = nn.Conv1d(in_channels=self.CHAR_EMBED_DIM,
@@ -152,12 +155,19 @@ class BiDAF(nn.Module):
     def forward(self, context: str, query: str) -> Union:
         context_embedding = self._embed_doc(doc=context)
         query_embedding = self._embed_doc(doc=query)
+
+        # Similarity Matx
         broadcast_context_embedding = context_embedding.repeat_interleave(repeats=query_embedding.shape[0], dim=0)
         broadcast_query_embedding = query_embedding.repeat([context_embedding.shape[0], 1])
         broadcast_hadamard_product = broadcast_query_embedding * broadcast_context_embedding
         broadcast = torch.cat([broadcast_context_embedding, broadcast_query_embedding, broadcast_hadamard_product], dim=1)
         similarity_tensor = self.similarity_alpha(broadcast).squeeze()
         similarity_matx = torch.reshape(similarity_tensor, (context_embedding.shape[0], query_embedding.shape[0]))
+
+        # Context_2_Query ( C2Q )
+        c2q_attn = self.softmax_dim1(similarity_matx)
+        c2q = torch.matmul(c2q_attn, query_embedding)
+
         return context_embedding, query_embedding, similarity_matx
 
 
