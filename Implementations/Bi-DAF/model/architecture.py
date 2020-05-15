@@ -45,6 +45,7 @@ class BiDAF(nn.Module):
         super(BiDAF, self).__init__()
         # Model Properties
         self.elmo_sent = elmo_sent
+        self.randomize_init_hidden = True
 
         # Useful Constants
         self.UNK_TOK_IX = 0
@@ -55,6 +56,9 @@ class BiDAF(nn.Module):
         self.ELMO_EMBED_DIM = 256  # This will change if the ELMO options/weights change
         self.OPTIONS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
         self.WEIGHTS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
+
+        self.LSTM_LAYERS = 2
+        self.randomize_init_hidden = True
 
         # Model Helper
         self.CHAR_SET_CNN = ["UNK"] + list(
@@ -76,6 +80,18 @@ class BiDAF(nn.Module):
         self.elmo = Elmo(self.OPTIONS_FILE, self.WEIGHTS_FILE, 1)
 
         self.highway = HighwayNetwork(input_dim=(self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM))
+
+        self.lstm = nn.LSTM(input_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
+                            hidden_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
+                            bidirectional=True,
+                            num_layers=self.LSTM_LAYERS)
+
+    def _init_hidden(self, batch_size: int = 1) -> Union:
+        if self.randomize_init_hidden:
+            init_hidden = torch.randn(self.LSTM_LAYERS * 2, batch_size, self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
+        else:
+            init_hidden = torch.zeros(self.LSTM_LAYERS * 2, batch_size, self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
+        return init_hidden, init_hidden
 
     def _cnn_embed_doc(self, doc_tokens: List[List[str]]) -> torch.Tensor:
         cnn_doc_feats = []
@@ -120,12 +136,22 @@ class BiDAF(nn.Module):
         doc_embedded = torch.cat((doc_embedded_cnn, doc_embedded_elmo), dim=1)
         # Pass Embedding through a Highway Network
         doc_embedded_highway = self.highway(doc_embedded)
-        return doc_embedded_highway
+        # Pass Embedding through the LSTM
+        doc_embedded_highway = doc_embedded_highway.unsqueeze(dim=1)
+        _init_hidden = self._init_hidden()
+
+        doc_embedded_contextual, _ = self.lstm(doc_embedded_highway, _init_hidden)
+        doc_embedded_contextual = doc_embedded_contextual.view(doc_embedded_highway.shape[0], 1, 2,
+                                                               self.lstm.hidden_size)
+        doc_embedded_contextual = torch.cat((doc_embedded_contextual[:, :, 0, :],
+                                             doc_embedded_contextual[:, :, 1, :]),
+                                            dim=2).squeeze(dim=1)
+        return doc_embedded_contextual
 
     def forward(self, context: str, query: str) -> Union:
-        context_embedding = self._embed_doc(doc=context)
-        query_embedding = self._embed_doc(doc=query)
-        return context_embedding, query_embedding
+        context_embedding_contextual = self._embed_doc(doc=context)
+        query_embedding_contextual = self._embed_doc(doc=query)
+        return context_embedding_contextual, query_embedding_contextual
 
 
 bidaf = BiDAF()
@@ -133,10 +159,9 @@ bidaf = BiDAF()
 c = "There once was a dog. His name was Charlie. He was a very good boy."
 q = "Who is a good boy?"
 
-c_em, q_em = bidaf(context=c, query=q)
+c_emc, q_emc = bidaf(context=c, query=q)
 
 print(c)
-print(c_em.shape)
+print(c_emc.shape)
 print(q)
-print(q_em.shape)
-
+print(q_emc.shape)
