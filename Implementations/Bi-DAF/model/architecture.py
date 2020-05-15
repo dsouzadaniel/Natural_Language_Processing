@@ -85,6 +85,7 @@ class BiDAF(nn.Module):
                             hidden_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
                             bidirectional=True,
                             num_layers=self.LSTM_LAYERS)
+        self.similarity_alpha = nn.Linear(6*(self.CHAR_EMBED_DIM+self.ELMO_EMBED_DIM), 1)
 
     def _init_hidden(self, batch_size: int = 1) -> Union:
         if self.randomize_init_hidden:
@@ -149,9 +150,15 @@ class BiDAF(nn.Module):
         return doc_embedded_contextual
 
     def forward(self, context: str, query: str) -> Union:
-        context_embedding_contextual = self._embed_doc(doc=context)
-        query_embedding_contextual = self._embed_doc(doc=query)
-        return context_embedding_contextual, query_embedding_contextual
+        context_embedding = self._embed_doc(doc=context)
+        query_embedding = self._embed_doc(doc=query)
+        broadcast_context_embedding = context_embedding.repeat_interleave(repeats=query_embedding.shape[0], dim=0)
+        broadcast_query_embedding = query_embedding.repeat([context_embedding.shape[0], 1])
+        broadcast_hadamard_product = broadcast_query_embedding * broadcast_context_embedding
+        broadcast = torch.cat([broadcast_context_embedding, broadcast_query_embedding, broadcast_hadamard_product], dim=1)
+        similarity_tensor = self.similarity_alpha(broadcast).squeeze()
+        similarity_matx = torch.reshape(similarity_tensor, (context_embedding.shape[0], query_embedding.shape[0]))
+        return context_embedding, query_embedding, similarity_matx
 
 
 bidaf = BiDAF()
@@ -159,9 +166,11 @@ bidaf = BiDAF()
 c = "There once was a dog. His name was Charlie. He was a very good boy."
 q = "Who is a good boy?"
 
-c_emc, q_emc = bidaf(context=c, query=q)
+c_emc, q_emc, s_cq = bidaf(context=c, query=q)
 
 print(c)
 print(c_emc.shape)
 print(q)
 print(q_emc.shape)
+print("Similarity Matx")
+print(s_cq.shape)
