@@ -97,7 +97,6 @@ class BiDAF(nn.Module):
                                       bidirectional=True,
                                       num_layers=self.MODELLING_LSTM_LAYERS)
 
-
     def _init_contextual_hidden(self, batch_size: int = 1) -> Union:
         if self.randomize_init_hidden:
             init_hidden = torch.randn(self.CONTEXTUAL_LSTM_LAYERS * 2, batch_size,
@@ -198,7 +197,6 @@ class BiDAF(nn.Module):
         context_q2c_hadamard_product = context_embedding * q2c
         query_aware_context = torch.cat(
             [context_embedding, c2q, context_c2q_hadamard_product, context_q2c_hadamard_product], dim=1)
-        print("Query_Aware_Context Shape : {0}".format(query_aware_context.shape))
 
         # Model Query Aware Context
         query_aware_context = query_aware_context.unsqueeze(dim=1)
@@ -206,13 +204,11 @@ class BiDAF(nn.Module):
 
         modelled_query_aware_context, _ = self.modelling_lstm(query_aware_context, _init_hidden)
         modelled_query_aware_context = modelled_query_aware_context.view(query_aware_context.shape[0], 1, 2,
-                                                               self.modelling_lstm.hidden_size)
+                                                                         self.modelling_lstm.hidden_size)
         modelled_query_aware_context = torch.cat((modelled_query_aware_context[:, :, 0, :],
-                                             modelled_query_aware_context[:, :, 1, :]),
-                                            dim=2).squeeze(dim=1)
-        print("Query_Aware_Context_Modelled Shape : {0}".format(modelled_query_aware_context.shape))
-
-        return context_embedding, query_embedding
+                                                  modelled_query_aware_context[:, :, 1, :]),
+                                                 dim=2).squeeze(dim=1)
+        return modelled_query_aware_context
 
 
 bidaf = BiDAF()
@@ -220,9 +216,8 @@ bidaf = BiDAF()
 c = "There once was a dog. His name was Charlie. He was a very good boy."
 q = "Who is a good boy?"
 
-c_emc, q_emc = bidaf(context=c, query=q)
+qac = bidaf(context=c, query=q)
 
 print(c)
-print(c_emc.shape)
 print(q)
-print(q_emc.shape)
+print("Query_Aware_Context_Modelled Shape : {0}".format(qac.shape))
