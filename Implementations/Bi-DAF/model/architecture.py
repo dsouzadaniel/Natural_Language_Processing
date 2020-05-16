@@ -97,21 +97,12 @@ class BiDAF(nn.Module):
                                       bidirectional=True,
                                       num_layers=self.MODELLING_LSTM_LAYERS)
 
-    def _init_contextual_hidden(self, batch_size: int = 1) -> Union:
+    def _init_bi_hidden(self, batch_size: int = 1, num_layers: int = 1):
         if self.randomize_init_hidden:
-            init_hidden = torch.randn(self.CONTEXTUAL_LSTM_LAYERS * 2, batch_size,
+            init_hidden = torch.randn(num_layers * 2, batch_size,
                                       self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
         else:
-            init_hidden = torch.zeros(self.CONTEXTUAL_LSTM_LAYERS * 2, batch_size,
-                                      self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
-        return init_hidden, init_hidden
-
-    def _init_modelling_hidden(self, batch_size: int = 1) -> Union:
-        if self.randomize_init_hidden:
-            init_hidden = torch.randn(self.MODELLING_LSTM_LAYERS * 2, batch_size,
-                                      self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
-        else:
-            init_hidden = torch.zeros(self.MODELLING_LSTM_LAYERS * 2, batch_size,
+            init_hidden = torch.zeros(num_layers * 2, batch_size,
                                       self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
         return init_hidden, init_hidden
 
@@ -160,15 +151,19 @@ class BiDAF(nn.Module):
         doc_embedded_highway = self.highway(doc_embedded)
         # Pass Embedding through the LSTM
         doc_embedded_highway = doc_embedded_highway.unsqueeze(dim=1)
-        _init_hidden = self._init_contextual_hidden()
+        doc_embedded_contextual = self._run_through_bilstm(input_tensor=doc_embedded_highway,
+                                                           bilstm=self.contextual_lstm)
 
-        doc_embedded_contextual, _ = self.contextual_lstm(doc_embedded_highway, _init_hidden)
-        doc_embedded_contextual = doc_embedded_contextual.view(doc_embedded_highway.shape[0], 1, 2,
-                                                               self.contextual_lstm.hidden_size)
-        doc_embedded_contextual = torch.cat((doc_embedded_contextual[:, :, 0, :],
-                                             doc_embedded_contextual[:, :, 1, :]),
-                                            dim=2).squeeze(dim=1)
         return doc_embedded_contextual
+
+    def _run_through_bilstm(self, input_tensor: torch.Tensor, bilstm: torch.nn.modules.rnn):
+        init_bi_hidden = self._init_bi_hidden(num_layers=bilstm.num_layers)
+        output_tensor, _ = bilstm(input_tensor, init_bi_hidden)
+        output_tensor = output_tensor.view(input_tensor.shape[0], 1, 2, bilstm.hidden_size)
+        output_tensor = torch.cat((output_tensor[:, :, 0, :],
+                                   output_tensor[:, :, 1, :]),
+                                  dim=2).squeeze(dim=1)
+        return output_tensor
 
     def forward(self, context: str, query: str) -> Union:
         context_embedding = self._embed_doc(doc=context)
@@ -200,15 +195,10 @@ class BiDAF(nn.Module):
 
         # Model Query Aware Context
         query_aware_context = query_aware_context.unsqueeze(dim=1)
-        _init_hidden = self._init_modelling_hidden()
+        modelled_query_aware_context = self._run_through_bilstm(input_tensor=query_aware_context,
+                                                                bilstm=self.modelling_lstm)
 
-        modelled_query_aware_context, _ = self.modelling_lstm(query_aware_context, _init_hidden)
-        modelled_query_aware_context = modelled_query_aware_context.view(query_aware_context.shape[0], 1, 2,
-                                                                         self.modelling_lstm.hidden_size)
-        modelled_query_aware_context = torch.cat((modelled_query_aware_context[:, :, 0, :],
-                                                  modelled_query_aware_context[:, :, 1, :]),
-                                                 dim=2).squeeze(dim=1)
-        return modelled_query_aware_context
+        return query_aware_context, modelled_query_aware_context
 
 
 bidaf = BiDAF()
@@ -216,8 +206,10 @@ bidaf = BiDAF()
 c = "There once was a dog. His name was Charlie. He was a very good boy."
 q = "Who is a good boy?"
 
-qac = bidaf(context=c, query=q)
+qac, mqac = bidaf(context=c, query=q)
 
 print(c)
 print(q)
-print("Query_Aware_Context_Modelled Shape : {0}".format(qac.shape))
+print("Query_Aware_ContextShape : {0}".format(qac.shape))
+
+print("Query_Aware_Context_Modelled Shape : {0}".format(mqac.shape))
