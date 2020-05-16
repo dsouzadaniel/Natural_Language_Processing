@@ -57,7 +57,8 @@ class BiDAF(nn.Module):
         self.OPTIONS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_options.json"
         self.WEIGHTS_FILE = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x1024_128_2048cnn_1xhighway/elmo_2x1024_128_2048cnn_1xhighway_weights.hdf5"
 
-        self.LSTM_LAYERS = 1
+        self.CONTEXTUAL_LSTM_LAYERS = 1
+        self.MODELLING_LSTM_LAYERS = 2
         self.randomize_init_hidden = True
 
         # Model Helper
@@ -84,17 +85,35 @@ class BiDAF(nn.Module):
 
         self.highway = HighwayNetwork(input_dim=(self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM))
 
-        self.lstm = nn.LSTM(input_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
-                            hidden_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
-                            bidirectional=True,
-                            num_layers=self.LSTM_LAYERS)
+        self.contextual_lstm = nn.LSTM(input_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
+                                       hidden_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
+                                       bidirectional=True,
+                                       num_layers=self.CONTEXTUAL_LSTM_LAYERS)
+
         self.similarity_alpha = nn.Linear(6 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM), 1)
 
-    def _init_hidden(self, batch_size: int = 1) -> Union:
+        self.modelling_lstm = nn.LSTM(input_size=8 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM),
+                                      hidden_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
+                                      bidirectional=True,
+                                      num_layers=self.MODELLING_LSTM_LAYERS)
+
+
+    def _init_contextual_hidden(self, batch_size: int = 1) -> Union:
         if self.randomize_init_hidden:
-            init_hidden = torch.randn(self.LSTM_LAYERS * 2, batch_size, self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
+            init_hidden = torch.randn(self.CONTEXTUAL_LSTM_LAYERS * 2, batch_size,
+                                      self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
         else:
-            init_hidden = torch.zeros(self.LSTM_LAYERS * 2, batch_size, self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
+            init_hidden = torch.zeros(self.CONTEXTUAL_LSTM_LAYERS * 2, batch_size,
+                                      self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
+        return init_hidden, init_hidden
+
+    def _init_modelling_hidden(self, batch_size: int = 1) -> Union:
+        if self.randomize_init_hidden:
+            init_hidden = torch.randn(self.MODELLING_LSTM_LAYERS * 2, batch_size,
+                                      self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
+        else:
+            init_hidden = torch.zeros(self.MODELLING_LSTM_LAYERS * 2, batch_size,
+                                      self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM)
         return init_hidden, init_hidden
 
     def _cnn_embed_doc(self, doc_tokens: List[List[str]]) -> torch.Tensor:
@@ -142,11 +161,11 @@ class BiDAF(nn.Module):
         doc_embedded_highway = self.highway(doc_embedded)
         # Pass Embedding through the LSTM
         doc_embedded_highway = doc_embedded_highway.unsqueeze(dim=1)
-        _init_hidden = self._init_hidden()
+        _init_hidden = self._init_contextual_hidden()
 
-        doc_embedded_contextual, _ = self.lstm(doc_embedded_highway, _init_hidden)
+        doc_embedded_contextual, _ = self.contextual_lstm(doc_embedded_highway, _init_hidden)
         doc_embedded_contextual = doc_embedded_contextual.view(doc_embedded_highway.shape[0], 1, 2,
-                                                               self.lstm.hidden_size)
+                                                               self.contextual_lstm.hidden_size)
         doc_embedded_contextual = torch.cat((doc_embedded_contextual[:, :, 0, :],
                                              doc_embedded_contextual[:, :, 1, :]),
                                             dim=2).squeeze(dim=1)
@@ -181,15 +200,27 @@ class BiDAF(nn.Module):
             [context_embedding, c2q, context_c2q_hadamard_product, context_q2c_hadamard_product], dim=1)
         print("Query_Aware_Context Shape : {0}".format(query_aware_context.shape))
 
-        return context_embedding, query_embedding, similarity_matx
+        # Model Query Aware Context
+        query_aware_context = query_aware_context.unsqueeze(dim=1)
+        _init_hidden = self._init_modelling_hidden()
+
+        modelled_query_aware_context, _ = self.modelling_lstm(query_aware_context, _init_hidden)
+        modelled_query_aware_context = modelled_query_aware_context.view(query_aware_context.shape[0], 1, 2,
+                                                               self.modelling_lstm.hidden_size)
+        modelled_query_aware_context = torch.cat((modelled_query_aware_context[:, :, 0, :],
+                                             modelled_query_aware_context[:, :, 1, :]),
+                                            dim=2).squeeze(dim=1)
+        print("Query_Aware_Context_Modelled Shape : {0}".format(modelled_query_aware_context.shape))
+
+        return context_embedding, query_embedding
 
 
 bidaf = BiDAF()
 
 c = "There once was a dog. His name was Charlie. He was a very good boy."
-q = "Who is a very good boy?"
+q = "Who is a good boy?"
 
-c_emc, q_emc, s_cq = bidaf(context=c, query=q)
+c_emc, q_emc = bidaf(context=c, query=q)
 
 print(c)
 print(c_emc.shape)
