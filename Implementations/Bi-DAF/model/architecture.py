@@ -69,6 +69,7 @@ class BiDAF(nn.Module):
 
 
         # Model Layers
+        self.softmax_dim0 = nn.Softmax(dim=0)
         self.softmax_dim1 = nn.Softmax(dim=1)
 
         self.char_embedding = nn.Embedding(num_embeddings=len(self.CHAR_SET_CNN),
@@ -167,6 +168,13 @@ class BiDAF(nn.Module):
         # Context_2_Query ( C2Q )
         c2q_attn = self.softmax_dim1(similarity_matx)
         c2q = torch.matmul(c2q_attn, query_embedding)
+        print("C2Q Shape is {0}".format(c2q.shape))
+
+        # Query_2_Context ( Q2C )
+        q2c_max, _ = similarity_matx.max(dim=1)
+        q2c_attn = self.softmax_dim0(q2c_max)
+        q2c = torch.matmul(q2c_attn, context_embedding).repeat(context_embedding.shape[0], 1)
+        print("Q2C Shape is {0}".format(q2c.shape))
 
         return context_embedding, query_embedding, similarity_matx
 
