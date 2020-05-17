@@ -59,6 +59,7 @@ class BiDAF(nn.Module):
 
         self.CONTEXTUAL_LSTM_LAYERS = 1
         self.MODELLING_LSTM_LAYERS = 2
+        self.POSITIONAL_LSTM_LAYERS = 1
         self.randomize_init_hidden = True
 
         # Model Helper
@@ -90,12 +91,20 @@ class BiDAF(nn.Module):
                                        bidirectional=True,
                                        num_layers=self.CONTEXTUAL_LSTM_LAYERS)
 
-        self.similarity_alpha = nn.Linear(6 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM), 1)
+        self.similarity_alpha = nn.Linear(6 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM), 1, bias=False)
 
         self.modelling_lstm = nn.LSTM(input_size=8 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM),
                                       hidden_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
                                       bidirectional=True,
                                       num_layers=self.MODELLING_LSTM_LAYERS)
+
+        self.positioning_lstm = nn.LSTM(input_size=2 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM),
+                                        hidden_size=self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM,
+                                        bidirectional=True,
+                                        num_layers=self.POSITIONAL_LSTM_LAYERS)
+
+        self.pos1_linear = nn.Linear(10 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM), 1, bias=False)
+        self.pos2_linear = nn.Linear(10 * (self.CHAR_EMBED_DIM + self.ELMO_EMBED_DIM), 1, bias=False)
 
     def _init_bi_hidden(self, batch_size: int = 1, num_layers: int = 1):
         if self.randomize_init_hidden:
@@ -198,18 +207,33 @@ class BiDAF(nn.Module):
         modelled_query_aware_context = self._run_through_bilstm(input_tensor=query_aware_context,
                                                                 bilstm=self.modelling_lstm)
 
-        return query_aware_context, modelled_query_aware_context
+        # Sub-Phrase Positions P1
+        query_aware_context = query_aware_context.squeeze(dim=1)
+        pos1_context = torch.cat([query_aware_context, modelled_query_aware_context], dim=1)
+        pos1_pdist = self.softmax_dim0(self.pos1_linear(pos1_context)).squeeze()
+
+        # Sub-Phrase Positions P2
+        modelled_query_aware_context = modelled_query_aware_context.unsqueeze(dim=1)
+        modelled2_query_aware_context = self._run_through_bilstm(input_tensor=modelled_query_aware_context,
+                                                                 bilstm=self.positioning_lstm)
+        modelled2_query_aware_context = modelled2_query_aware_context.squeeze(dim=1)
+        pos2_context = torch.cat([query_aware_context, modelled2_query_aware_context], dim=1)
+        pos2_pdist = self.softmax_dim0(self.pos2_linear(pos2_context)).squeeze()
+
+        return pos1_pdist, pos2_pdist
 
 
 bidaf = BiDAF()
 
-c = "There once was a dog. His name was Charlie. He was a very good boy."
+c = "There once was a dog. His name was Muttley Crue. He was a very good boy."
 q = "Who is a good boy?"
+p1 = 9
+p2 = 10
 
-qac, mqac = bidaf(context=c, query=q)
+pred_p1_pdist, pred_p2_pdist = bidaf(context=c, query=q)
+loss = torch.sum(torch.log(torch.Tensor([pred_p1_pdist[p1], pred_p2_pdist[p2]])))
 
 print(c)
 print(q)
-print("Query_Aware_ContextShape : {0}".format(qac.shape))
 
-print("Query_Aware_Context_Modelled Shape : {0}".format(mqac.shape))
+print(loss)
