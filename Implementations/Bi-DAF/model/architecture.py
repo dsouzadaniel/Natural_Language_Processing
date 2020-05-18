@@ -132,7 +132,7 @@ class BiDAF(nn.Module):
         if not self.elmo_sent:
             doc_tokens = [[token for sent_tokens in doc_tokens for token in sent_tokens]]
 
-        print(doc_tokens)
+        # print(doc_tokens)
         doc_elmo_ids = batch_to_ids(doc_tokens)
         doc_elmo_embed = self.elmo(doc_elmo_ids)
 
@@ -223,17 +223,17 @@ class BiDAF(nn.Module):
         return pos1_pdist, pos2_pdist
 
 
-bidaf = BiDAF()
-
-c = "There once was a dog. His name was Muttley Crue. He was a very good boy."
-q = "Who is a good boy?"
-p1 = 9
-p2 = 10
-
-pred_p1_pdist, pred_p2_pdist = bidaf(context=c, query=q)
-loss = torch.sum(torch.log(torch.Tensor([pred_p1_pdist[p1], pred_p2_pdist[p2]])))
-
-print(c)
-print(q)
-
-print(loss)
+# bidaf = BiDAF()
+#
+# c = "There once was a dog. His name was Muttley Crue. He was a very good boy."
+# q = "Who is a good boy?"
+# p1 = 9
+# p2 = 10
+#
+# pred_p1_pdist, pred_p2_pdist = bidaf(context=c, query=q)
+# loss = torch.sum(torch.log(torch.Tensor([pred_p1_pdist[p1], pred_p2_pdist[p2]])))
+#
+# print(c)
+# print(q)
+#
+# print(loss)
