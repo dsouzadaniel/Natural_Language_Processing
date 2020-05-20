@@ -1,4 +1,4 @@
-EPOCHS = 20
+EPOCHS = 2
 
 DATASET_FOLDER = 'dataset'
 TRAIN_FILE = 'train.csv'

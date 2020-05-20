@@ -27,15 +27,16 @@ st.title('Bi-Directional Attn Flow(BiDAF) Demo')
 
 st.header('Input')
 context_text = st.text_input(label='Enter Context Here',
-                           value=default_context)
+                             value=default_context)
 query_text = st.text_input(label='Enter Query Here',
                            value=default_query)
 
-if len(context_text) == 0 or len(query_text)==0:
+if len(context_text) == 0 or len(query_text) == 0:
     context_text = default_context
     query_text = default_query
 
-highlighted_context = helper.predict(context_text, query_text, pretrained_BIDAF)
+highlighted_context, confidence = helper.predict(context_text, query_text, pretrained_BIDAF)
 
 st.subheader('Predicted Span')
+st.write("Answering with Confidence {0}".format(round(confidence,3)))
 st.markdown(highlighted_context, unsafe_allow_html=True)

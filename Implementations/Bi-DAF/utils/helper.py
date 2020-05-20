@@ -21,6 +21,23 @@ def model_train(model, model_optimizer, dataset):
     return model, model_optimizer, epoch_loss
 
 
+def model_train_GPU(model, model_optimizer, dataloader):
+    model.train()
+    epoch_loss = 0
+    for batch in dataloader:
+        loss = 0
+        model_optimizer.zero_grad()
+        batch_context, batch_query, batch_positions = batch
+        for item_context, item_query, item_p1, item_p2 in zip(batch_context, batch_query, batch_positions[0],
+                                                              batch_positions[1]):
+            pred_p1_pdist, pred_p2_pdist = model(context=item_context, query=item_query)
+            loss -= torch.sum(torch.log(torch.stack([pred_p1_pdist[item_p1], pred_p2_pdist[item_p2]])))
+        loss.backward()
+        model_optimizer.step()
+        epoch_loss += loss.item() / len(batch_context)
+    return model, model_optimizer, epoch_loss
+
+
 def model_evaluate(model, dataloader):
     model.eval()
     epoch_loss = 0
@@ -38,7 +55,6 @@ def model_evaluate(model, dataloader):
 
 def get_best_span(p1_dist_by_sent: torch.Tensor, p2_dist_by_sent: torch.Tensor):
     best_span_sent_ix = 0
-    # Add the plus 1 when you fix the data
     best_span_tok_ixs = (0, 0)
     max_value = 0
     for sent_ix, (sent_p1_dist, sent_p2_dist) in enumerate(zip(p1_dist_by_sent, p2_dist_by_sent)):
@@ -54,9 +70,7 @@ def get_best_span(p1_dist_by_sent: torch.Tensor, p2_dist_by_sent: torch.Tensor):
                 max_value = p1_val * p2_val
                 best_span_sent_ix = sent_ix
                 best_span_tok_ixs = (best_p1_ix, tok_ix)
-
-    # Add the plus 1 when you fix the data
-    return (best_span_sent_ix, best_span_tok_ixs[0]), (best_span_sent_ix, best_span_tok_ixs[1])
+    return ((best_span_sent_ix, best_span_tok_ixs[0]), (best_span_sent_ix, best_span_tok_ixs[1])), max_value
 
 
 def mould_into_sents(x: torch.Tensor, sent_lens: List[int]):
@@ -64,8 +78,8 @@ def mould_into_sents(x: torch.Tensor, sent_lens: List[int]):
     moulded_x = []
     ref = 0
     for sent_len in sent_lens:
-        moulded_x.append(x[ref:sent_len])
-        ref+=sent_len
+        moulded_x.append(x[ref:ref + sent_len])
+        ref += sent_len
     return moulded_x
 
 
@@ -78,15 +92,16 @@ def predict(context: str, query: str, model: torch.nn.Module):
     pred_p1_dist_by_sent = mould_into_sents(pred_p1_dist, context_sent_lens)
     pred_p2_dist_by_sent = mould_into_sents(pred_p2_dist, context_sent_lens)
 
-    ans_span = get_best_span(pred_p1_dist_by_sent, pred_p2_dist_by_sent)
-    print(ans_span)
-    print(context_tokens)
+    ans_span, confidence = get_best_span(pred_p1_dist_by_sent, pred_p2_dist_by_sent)
+
     p1_token = context_tokens[ans_span[0][0]][ans_span[0][1]]
     p2_token = context_tokens[ans_span[1][0]][ans_span[1][1]]
 
+    print(ans_span)
+
     highlighted_context = context[:p1_token.idx] + \
                           '<span style="background-color:rgb(135,206,250);">' \
-                          + context[p1_token.idx:p2_token.idx] + \
+                          + context[p1_token.idx:p2_token.idx + len(p2_token.text)] + \
                           '</span>' + \
-                          context[p2_token.idx:]
-    return highlighted_context
+                          context[p2_token.idx + len(p2_token.text):]
+    return highlighted_context, confidence
