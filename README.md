@@ -18,3 +18,11 @@ A collection of my notes/projects/implementations/ in the wonderful world of NLP
 
 * Bi-Directional Attention Flow For Machine Comprehension ( ***https://github.com/dsouzadaniel/BiDAF***)
     >Implementing Bi-DAFs for MC
+                                                                              
+* Get To The Point: Summarization with Pointer-Generator Networks  ( ***Currently in Progress*** )
+    >Implementing Pointer Netorks for Summarization                                                                               
+                                                                               
+                                                                               
+                                                                               
+                                                                               
+
