@@ -11,7 +11,7 @@ A collection of my notes/projects/implementations/ in the wonderful world of NLP
     >Adding Minibatching and Dataloaders to tutorials
 
 ## Implementations
->Implementing research papers from arXiv.
+Implementing research papers from arXiv.
 
 * Hierarchical Attention Networks(HAN) for Document Classification ( ***https://github.com/dsouzadaniel/HAN***)
     >Implementing HAN Networks with Elmo
@@ -20,7 +20,7 @@ A collection of my notes/projects/implementations/ in the wonderful world of NLP
     >Implementing Bi-DAFs for MC
                                                                               
 * Get To The Point: Summarization with Pointer-Generator Networks  ( ***Currently in Progress*** )
-    >Implementing Pointer Netorks for Summarization                                                                               
+    >Implementing Pointer Networks for Summarization                                                                               
                                                                         
                                                                                
                                                                                
