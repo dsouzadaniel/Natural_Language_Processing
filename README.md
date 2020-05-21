@@ -21,7 +21,7 @@ A collection of my notes/projects/implementations/ in the wonderful world of NLP
                                                                               
 * Get To The Point: Summarization with Pointer-Generator Networks  ( ***Currently in Progress*** )
     >Implementing Pointer Netorks for Summarization                                                                               
-                                                                               
+                                                                        
                                                                                
                                                                                
                                                                                
